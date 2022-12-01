@@ -4,5 +4,7 @@ This is a kubernetes operator for Mastodon. It is currently in alpha and is not 
 
 ## TODO
 
-- [x] Add support to configure the number of threads for sidekiq
+- [x] Add support for configuring the number of threads for sidekiq
 - [ ] Add support for configuring what queues sidekiq should process
+- [ ] Add horizontal pod autoscaling support
+- [ ] Write a guide on how to use this operator
