@@ -46,6 +46,7 @@ spec:
   # web_replicas: 1
   # streaming_replicas: 1
   # sidekiq_replicas: 1
+  # sidekiq_threads: 10
 
   # Enable S3 storage
   s3_enabled: false

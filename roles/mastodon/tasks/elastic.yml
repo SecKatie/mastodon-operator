@@ -88,11 +88,6 @@
                 volumeMounts:
                   - name: elastic-data
                     mountPath: /usr/share/elasticsearch/data
-                resources:
-                  limits:
-                    memory: 1Gi
-                  requests:
-                    memory: 1Gi
             volumes:
               - name: elastic-data
                 persistentVolumeClaim:

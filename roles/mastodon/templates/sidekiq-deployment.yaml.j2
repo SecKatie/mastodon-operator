@@ -31,18 +31,13 @@ spec:
             - bundle
             - exec
             - sidekiq
+            - -c
+            - '{{ sidekiq_threads }}'
           envFrom:
             - configMapRef:
                 name: '{{ ansible_operator_meta.name }}-mastodon-config'
             - secretRef:
                 name: '{{ ansible_operator_meta.name }}-mastodon-secret'
-          resources:
-            limits:
-              cpu: 1000m
-              memory: 1Gi
-            requests:
-              cpu: 500m
-              memory: 512Mi
 {% if not s3_enabled %}
           volumeMounts:
             - name: mastodon-system

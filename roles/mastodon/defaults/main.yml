@@ -36,10 +36,11 @@ image: tootsuite/mastodon:v4.0
 web_replicas: 1
 streaming_replicas: 1
 sidekiq_replicas: 1
+sidekiq_threads: 25
 
 # Enable S3 storage
 s3_enabled: false
-s3_alias_host: ""
+# s3_alias_host: ""
 s3_bucket: ""
 s3_region: ""
 s3_endpoint: ""
