@@ -1,0 +1,14 @@
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: '{{ ansible_operator_meta.name }}-elastic-pvc'
+  namespace: '{{ ansible_operator_meta.namespace }}'
+spec:
+{% if storage_class_name is defined %}
+  storageClassName: '{{ storage_class_name }}'
+{% endif %}
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 8Gi

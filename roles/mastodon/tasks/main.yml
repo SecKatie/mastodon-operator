@@ -1,0 +1,18 @@
+---
+# tasks file for Mastodon
+- name: Configure postgres
+  ansible.builtin.include_tasks:
+    file: postgres.yml
+- name: Configure redis
+  ansible.builtin.include_tasks:
+    file: redis.yml
+- name: Configure elastic
+  ansible.builtin.include_tasks:
+    file: elastic.yml
+- name: Configure mastodon
+  ansible.builtin.include_tasks:
+    file: mastodon.yml
+- name: Configure cloudflared
+  ansible.builtin.include_tasks:
+    file: cloudflared.yml
+  when: cloudflared_enabled

@@ -1,0 +1,32 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: '{{ ansible_operator_meta.name }}-mastodon-config'
+  namespace: '{{ ansible_operator_meta.namespace }}'
+data:
+  LOCAL_DOMAIN: '{{ local_domain }}'
+  SMTP_SERVER: '{{ smtp_server }}'
+  SMTP_PORT: '{{ smtp_port }}'
+  SMTP_LOGIN: '{{ smtp_login }}'
+  SMTP_FROM_ADDRESS: '{{ smtp_from_address }}'
+  SMTP_AUTH_METHOD: '{{ smtp_auth_method }}'
+  SMTP_ENABLE_STARTTLS_AUTO: '{{ smtp_enable_starttls_auto }}'
+  SMTP_OPENSSL_VERIFY_MODE: '{{ smtp_openssl_verify_mode }}'
+  REDIS_HOST: '{{ ansible_operator_meta.name }}-redis'
+  REDIS_PORT: '6379'
+  DB_HOST: '{{ ansible_operator_meta.name }}-postgres'
+  DB_PORT: '5432'
+  DB_NAME: '{{ ansible_operator_meta.name }}-mastodon'
+  DB_USER: '{{ ansible_operator_meta.name }}-mastodon'
+  ES_ENABLED: 'true'
+  ES_HOST: '{{ ansible_operator_meta.name }}-elastic'
+  ES_PORT: '9200'
+{% if s3_enabled %}
+  S3_ENABLED: "true"
+{% if s3_alias_host is defined %}
+  S3_ALIAS_HOST: '{{ s3_alias_host }}'
+{% endif %}
+  S3_REGION: '{{ s3_region }}'
+  S3_BUCKET: '{{ s3_bucket }}'
+  S3_ENDPOINT: '{{ s3_endpoint }}'
+{% endif %}

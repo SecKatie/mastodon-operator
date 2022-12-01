@@ -1,0 +1,139 @@
+---
+- name: Create a ConfigMap for postgres
+  kubernetes.core.k8s:
+    definition:
+      kind: ConfigMap
+      apiVersion: v1
+      metadata:
+        name: '{{ ansible_operator_meta.name }}-postgres'
+        namespace: '{{ ansible_operator_meta.namespace }}'
+      data:
+        POSTGRES_DB: '{{ ansible_operator_meta.name }}-mastodon'
+        POSTGRES_USER: '{{ ansible_operator_meta.name }}-mastodon'
+        PGDATA: /var/lib/postgresql/data/pgdata
+- name: Create postgresql.conf ConfigMap
+  kubernetes.core.k8s:
+    definition:
+      kind: ConfigMap
+      apiVersion: v1
+      metadata:
+        name: '{{ ansible_operator_meta.name }}-postgres-conf'
+        namespace: '{{ ansible_operator_meta.namespace }}'
+      data:
+        postgresql.conf: "{{ lookup('file', 'postgresql.conf') }}"
+- name: Check for an existing secret
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: '{{ ansible_operator_meta.name }}-postgres'
+    namespace: '{{ ansible_operator_meta.namespace }}'
+  register: postgres_secret
+- name: Create a Secret for postgres
+  when: postgres_secret.resources | length == 0
+  block:
+    - name: Set the password as a fact
+      ansible.builtin.set_fact:
+        postgres_password: '{{ lookup("password", "/dev/null length=32 chars=ascii_letters,digits") }}'
+    - name: Create a Secret for postgres
+      kubernetes.core.k8s:
+        definition:
+          kind: Secret
+          apiVersion: v1
+          metadata:
+            name: '{{ ansible_operator_meta.name }}-postgres'
+            namespace: '{{ ansible_operator_meta.namespace }}'
+          data:
+            POSTGRES_PASSWORD: '{{ postgres_password | b64encode }}'
+- name: Create postgres persistentVolumeClaim
+  kubernetes.core.k8s:
+    template: postgres-pvc.yaml.j2
+- name: Create postgres database deployment
+  kubernetes.core.k8s:
+    definition:
+      kind: Deployment
+      apiVersion: apps/v1
+      metadata:
+        name: '{{ ansible_operator_meta.name }}-postgres'
+        namespace: '{{ ansible_operator_meta.namespace }}'
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app.kubernetes.io/name: '{{ ansible_operator_meta.name }}-postgres'
+            app.kubernetes.io/instance: '{{ ansible_operator_meta.name }}'
+            app.kubernetes.io/part-of: mastodon-operator
+            app.kubernetes.io/managed-by: kustomize
+            app.kubernetes.io/created-by: mastodon-operator
+            app.kubernetes.io/component: postgres
+        template:
+          metadata:
+            labels:
+              app.kubernetes.io/name: '{{ ansible_operator_meta.name }}-postgres'
+              app.kubernetes.io/instance: '{{ ansible_operator_meta.name }}'
+              app.kubernetes.io/part-of: mastodon-operator
+              app.kubernetes.io/managed-by: kustomize
+              app.kubernetes.io/created-by: mastodon-operator
+              app.kubernetes.io/component: postgres
+          spec:
+            containers:
+              - name: postgres
+                image: postgres:14-alpine
+                imagePullPolicy: Always
+                envFrom:
+                  - configMapRef:
+                      name: '{{ ansible_operator_meta.name }}-postgres'
+                  - secretRef:
+                      name: '{{ ansible_operator_meta.name }}-postgres'
+                ports:
+                  - containerPort: 5432
+                    name: postgres
+                readinessProbe:
+                  exec:
+                    command:
+                      - pg_isready
+                      - -U
+                      - '{{ ansible_operator_meta.name }}-mastodon'
+                  initialDelaySeconds: 5
+                  periodSeconds: 5
+                livenessProbe:
+                  exec:
+                    command:
+                      - pg_isready
+                      - -U
+                      - '{{ ansible_operator_meta.name }}-mastodon'
+                  initialDelaySeconds: 5
+                  periodSeconds: 5
+                volumeMounts:
+                  - name: postgres-data
+                    mountPath: /var/lib/postgresql/data
+                  - name: postgres-conf
+                    mountPath: /etc/postgresql/postgresql.conf
+                    subPath: postgresql.conf
+            volumes:
+              - name: postgres-data
+                persistentVolumeClaim:
+                  claimName: '{{ ansible_operator_meta.name }}-postgres-pvc'
+              - name: postgres-conf
+                configMap:
+                  name: '{{ ansible_operator_meta.name }}-postgres-conf'
+- name: Create postgres database service
+  kubernetes.core.k8s:
+    definition:
+      kind: Service
+      apiVersion: v1
+      metadata:
+        name: '{{ ansible_operator_meta.name }}-postgres'
+        namespace: '{{ ansible_operator_meta.namespace }}'
+      spec:
+        selector:
+          app.kubernetes.io/name: '{{ ansible_operator_meta.name }}-postgres'
+          app.kubernetes.io/instance: '{{ ansible_operator_meta.name }}'
+          app.kubernetes.io/part-of: mastodon-operator
+          app.kubernetes.io/managed-by: kustomize
+          app.kubernetes.io/created-by: mastodon-operator
+          app.kubernetes.io/component: postgres
+        ports:
+          - name: postgres
+            port: 5432
+            targetPort: 5432
+        type: ClusterIP

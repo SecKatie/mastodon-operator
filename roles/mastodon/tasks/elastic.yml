@@ -1,0 +1,120 @@
+---
+- name: Create elastic persistentVolumeClaim
+  kubernetes.core.k8s:
+    template: elastic-pvc.yaml.j2
+- name: Create elastic deployment
+  kubernetes.core.k8s:
+    definition:
+      kind: Deployment
+      apiVersion: apps/v1
+      metadata:
+        name: '{{ ansible_operator_meta.name }}-elastic'
+        namespace: '{{ ansible_operator_meta.namespace }}'
+      spec:
+        replicas: 1
+        strategy:
+          type: Recreate
+        selector:
+          matchLabels:
+            app.kubernetes.io/name: '{{ ansible_operator_meta.name }}-elastic'
+            app.kubernetes.io/instance: '{{ ansible_operator_meta.name }}'
+            app.kubernetes.io/part-of: mastodon-operator
+            app.kubernetes.io/managed-by: kustomize
+            app.kubernetes.io/created-by: mastodon-operator
+            app.kubernetes.io/component: elastic
+        template:
+          metadata:
+            labels:
+              app.kubernetes.io/name: '{{ ansible_operator_meta.name }}-elastic'
+              app.kubernetes.io/instance: '{{ ansible_operator_meta.name }}'
+              app.kubernetes.io/part-of: mastodon-operator
+              app.kubernetes.io/managed-by: kustomize
+              app.kubernetes.io/created-by: mastodon-operator
+              app.kubernetes.io/component: elastic
+          spec:
+            initContainers:
+              - name: elastic-init
+                image: busybox
+                imagePullPolicy: Always
+                command:
+                  - sh
+                  - -c
+                  - |
+                    set -e
+                    chown -R 1000:1000 /data
+                volumeMounts:
+                  - name: elastic-data
+                    mountPath: /data
+            containers:
+              - name: elastic
+                image: docker.elastic.co/elasticsearch/elasticsearch:7.17.4
+                imagePullPolicy: Always
+                env:
+                  - name: discovery.type
+                    value: single-node
+                  - name: cluster.name
+                    value: '{{ ansible_operator_meta.name }}-elastic'
+                  - name: xpack.security.enabled
+                    value: "false"
+                  - name: xpack.license.self_generated.type
+                    value: basic
+                  - name: xpack.watcher.enabled
+                    value: "false"
+                  - name: xpack.graph.enabled
+                    value: "false"
+                  - name: xpack.ml.enabled
+                    value: "false"
+                  - name: thread_pool.write.queue_size
+                    value: "1000"
+                ports:
+                  - containerPort: 9200
+                    name: elastic
+                readinessProbe:
+                  exec:
+                    command:
+                      - curl
+                      - -f
+                      - http://localhost:9200/_cluster/health?wait_for_status=yellow
+                  initialDelaySeconds: 5
+                  periodSeconds: 5
+                livenessProbe:
+                  exec:
+                    command:
+                      - curl
+                      - -f
+                      - http://localhost:9200/_cluster/health?wait_for_status=yellow
+                  initialDelaySeconds: 5
+                  periodSeconds: 5
+                volumeMounts:
+                  - name: elastic-data
+                    mountPath: /usr/share/elasticsearch/data
+                resources:
+                  limits:
+                    memory: 1Gi
+                  requests:
+                    memory: 1Gi
+            volumes:
+              - name: elastic-data
+                persistentVolumeClaim:
+                  claimName: '{{ ansible_operator_meta.name }}-elastic-pvc'
+- name: Create elastic service
+  kubernetes.core.k8s:
+    definition:
+      kind: Service
+      apiVersion: v1
+      metadata:
+        name: '{{ ansible_operator_meta.name }}-elastic'
+        namespace: '{{ ansible_operator_meta.namespace }}'
+      spec:
+        selector:
+          app.kubernetes.io/name: '{{ ansible_operator_meta.name }}-elastic'
+          app.kubernetes.io/instance: '{{ ansible_operator_meta.name }}'
+          app.kubernetes.io/part-of: mastodon-operator
+          app.kubernetes.io/managed-by: kustomize
+          app.kubernetes.io/created-by: mastodon-operator
+          app.kubernetes.io/component: elastic
+        ports:
+          - name: elastic
+            port: 9200
+            targetPort: 9200
+        type: ClusterIP

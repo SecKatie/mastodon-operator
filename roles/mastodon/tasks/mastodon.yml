@@ -1,0 +1,188 @@
+---
+- name: Create persistantvolume claim for mastodon
+  kubernetes.core.k8s:
+    definition:
+      kind: PersistentVolumeClaim
+      apiVersion: v1
+      metadata:
+        name: '{{ ansible_operator_meta.name }}-mastodon-system'
+        namespace: '{{ ansible_operator_meta.namespace }}'
+      spec:
+        storageClassName: '{{ storage_class_name }}'
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 100Gi
+  when: not s3_enabled
+- name: Create mastodon ConfigMap
+  kubernetes.core.k8s:
+    template: mastodon-configmap.yaml.j2
+- name: Get existing mastodon secret (if it exists)
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: '{{ ansible_operator_meta.name }}-mastodon-secret'
+    namespace: '{{ ansible_operator_meta.namespace }}'
+  register: mastodon_secret
+- name: Get secrets if they are not already present
+  when: mastodon_secret.resources | length == 0
+  block:
+    - name: Get the postgres_password if it is not already defined
+      when: postgres_password is not defined
+      block:
+        - name: Get postgress_password from secret
+          kubernetes.core.k8s_info:
+            api_version: v1
+            kind: Secret
+            name: '{{ ansible_operator_meta.name }}-postgres'
+            namespace: '{{ ansible_operator_meta.namespace }}'
+          register: postgres_secret
+        - name: Set postgress_password
+          ansible.builtin.set_fact:
+            postgres_password: '{{ postgres_secret.resources[0].data.POSTGRES_PASSWORD | b64decode }}'
+    - name: Generate and set secret_key_base
+      when: secret_key_base is not defined
+      block:
+        - name: Create secret_key_base
+          ansible.builtin.command:
+            cmd: >
+              kubectl -n {{ ansible_operator_meta.namespace }} run -i --restart='Never'
+              --rm=true secret-gen-key-base --image={{ image }} -- bundle exec rake secret
+          register: secret_key_base_command
+          when: secret_key_base is not defined
+        - name: Set secret_key_base
+          ansible.builtin.set_fact:
+            secret_key_base: '{{ secret_key_base_command.stdout_lines[0] }}'
+    - name: Generate and set otp_secret
+      when: otp_secret is not defined
+      block:
+        - name: Create otp_secret
+          ansible.builtin.command:
+            cmd: >
+              kubectl -n {{ ansible_operator_meta.namespace }} run -i --restart='Never'
+              --rm=true secret-gen-otp-secret --image={{ image }} -- bundle exec rake secret
+          register: otp_secret_command
+          when: otp_secret is not defined
+        - name: Set otp_secret
+          ansible.builtin.set_fact:
+            otp_secret: '{{ otp_secret_command.stdout_lines[0] }}'
+    - name: Generate and set vapid_private_key and vapid_public_key
+      when: (vapid_private_key is not defined) or (vapid_public_key is not defined)
+      block:
+        - name: Create vapid_private_key and vapid_public_key
+          ansible.builtin.command:
+            cmd: >
+              kubectl -n {{ ansible_operator_meta.namespace }} run -i --restart='Never'
+              --rm=true secret-gen-vapid --image={{ image }} -- bundle exec rake mastodon:webpush:generate_vapid_key
+          register: vapid_key_command
+          when: (vapid_private_key is not defined) or (vapid_public_key is not defined)
+        - name: Set vapid keys
+          ansible.builtin.set_fact:
+            vapid_private_key: '{{ vapid_key_command.stdout_lines[0].split("=")[1:] | join("=") }}'
+            vapid_public_key: '{{ vapid_key_command.stdout_lines[1].split("=")[1:] | join("=") }}'
+    - name: Create mastodon Secret
+      kubernetes.core.k8s:
+        template: mastodon-secret.yaml.j2
+- name: Run db migrate job
+  kubernetes.core.k8s:
+    template: db-migrate-job.yaml.j2
+- name: Get the status of the db migrate job
+  kubernetes.core.k8s_info:
+    api_version: batch/v1
+    kind: Job
+    name: '{{ ansible_operator_meta.name }}-db-migrate'
+    namespace: '{{ ansible_operator_meta.namespace }}'
+  register: db_migrate_job
+- name: Create mastodon deployments if the job is complete
+  when: db_migrate_job.resources[0].status.succeeded is defined
+  block:
+    - name: Create mastodon web deployment
+      kubernetes.core.k8s:
+        template: web-deployment.yaml.j2
+    - name: Create mastodon web service
+      kubernetes.core.k8s:
+        definition:
+          kind: Service
+          apiVersion: v1
+          metadata:
+            name: '{{ ansible_operator_meta.name }}-mastodon-web'
+            namespace: '{{ ansible_operator_meta.namespace }}'
+          spec:
+            selector:
+              app.kubernetes.io/name: mastodon
+              app.kubernetes.io/instance: '{{ ansible_operator_meta.name }}'
+              app.kubernetes.io/part-of: mastodon-operator
+              app.kubernetes.io/managed-by: kustomize
+              app.kubernetes.io/created-by: mastodon-operator
+              app.kubernetes.io/component: web
+            ports:
+              - name: http
+                port: 3000
+                targetPort: 3000
+            type: ClusterIP
+    - name: Create mastodon streaming deployment
+      kubernetes.core.k8s:
+        template: streaming-deployment.yaml.j2
+    - name: Create mastodon streaming service
+      kubernetes.core.k8s:
+        definition:
+          kind: Service
+          apiVersion: v1
+          metadata:
+            name: '{{ ansible_operator_meta.name }}-mastodon-streaming'
+            namespace: '{{ ansible_operator_meta.namespace }}'
+          spec:
+            selector:
+              app.kubernetes.io/name: mastodon
+              app.kubernetes.io/instance: '{{ ansible_operator_meta.name }}'
+              app.kubernetes.io/part-of: mastodon-operator
+              app.kubernetes.io/managed-by: kustomize
+              app.kubernetes.io/created-by: mastodon-operator
+              app.kubernetes.io/component: streaming
+            ports:
+              - name: streaming
+                port: 4000
+                targetPort: 4000
+            type: ClusterIP
+    - name: Create mastodon sidekiq deployment
+      kubernetes.core.k8s:
+        template: sidekiq-deployment.yaml.j2
+    - name: Check the availability of the web deployment
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Deployment
+        name: '{{ ansible_operator_meta.name }}-mastodon-web'
+        namespace: '{{ ansible_operator_meta.namespace }}'
+      register: web_deployment
+    - name: Create owner account job
+      when: create_owner_account is defined and create_owner_account and
+            web_deployment.resources[0].status.availableReplicas is defined and
+            web_deployment.resources[0].status.availableReplicas > 0
+      kubernetes.core.k8s:
+        definition:
+          kind: Job
+          apiVersion: batch/v1
+          metadata:
+            name: '{{ ansible_operator_meta.name }}-create-owner-account'
+            namespace: '{{ ansible_operator_meta.namespace }}'
+          spec:
+            completions: 1
+            template:
+              spec:
+                restartPolicy: OnFailure
+                containers:
+                  - name: mastodon-create-owner-account
+                    image: '{{ image }}'
+                    command:
+                      - tootctl
+                      - accounts
+                      - create
+                      - "{{ owner_account_username }}"
+                      - "--email={{ owner_account_email }}"
+                      - "--confirmed"
+                    envFrom:
+                      - configMapRef:
+                          name: '{{ ansible_operator_meta.name }}-mastodon-config'
+                      - secretRef:
+                          name: '{{ ansible_operator_meta.name }}-mastodon-secret'

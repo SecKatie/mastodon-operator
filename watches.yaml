@@ -1,0 +1,7 @@
+---
+# Use the 'create api' subcommand to add watches to this file.
+- version: v1alpha1
+  group: mastodon.k8s.mulliken.net
+  kind: Mastodon
+  role: mastodon
+#+kubebuilder:scaffold:watch

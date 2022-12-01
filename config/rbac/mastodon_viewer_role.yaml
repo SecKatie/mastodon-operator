@@ -1,0 +1,27 @@
+# permissions for end users to view mastodons.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: mastodon-viewer-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: mastodon-operator
+    app.kubernetes.io/part-of: mastodon-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: mastodon-viewer-role
+rules:
+- apiGroups:
+  - mastodon.k8s.mulliken.net
+  resources:
+  - mastodons
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - mastodon.k8s.mulliken.net
+  resources:
+  - mastodons/status
+  verbs:
+  - get

@@ -1,0 +1,33 @@
+kind: Job
+apiVersion: batch/v1
+metadata:
+  name: '{{ ansible_operator_meta.name }}-db-migrate'
+  namespace: '{{ ansible_operator_meta.namespace }}'
+spec:
+  completions: 1
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: mastodon-db-migrate-job
+          image: '{{ image }}'
+          imagePullPolicy: Always
+          command:
+            - bundle
+            - exec
+            - rake
+            - db:migrate
+          envFrom:
+            - configMapRef:
+                name: '{{ ansible_operator_meta.name }}-mastodon-config'
+            - secretRef:
+                name: '{{ ansible_operator_meta.name }}-mastodon-secret'
+{% if not s3_enabled %}
+          volumeMounts:
+            - name: mastodon-system
+              mountPath: /opt/mastodon/public/system
+      volumes:
+        - name: mastodon-system
+          persistentVolumeClaim:
+            claimName: '{{ ansible_operator_meta.name }}-mastodon-system'
+{% endif %}

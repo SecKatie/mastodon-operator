@@ -1,0 +1,54 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: '{{ ansible_operator_meta.name }}-mastodon-sidekiq'
+  namespace: '{{ ansible_operator_meta.namespace }}'
+spec:
+  replicas: {{ sidekiq_replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mastodon
+      app.kubernetes.io/instance: '{{ ansible_operator_meta.name }}'
+      app.kubernetes.io/part-of: mastodon-operator
+      app.kubernetes.io/managed-by: kustomize
+      app.kubernetes.io/created-by: mastodon-operator
+      app.kubernetes.io/component: sidekiq
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mastodon
+        app.kubernetes.io/instance: '{{ ansible_operator_meta.name }}'
+        app.kubernetes.io/part-of: mastodon-operator
+        app.kubernetes.io/managed-by: kustomize
+        app.kubernetes.io/created-by: mastodon-operator
+        app.kubernetes.io/component: sidekiq
+    spec:
+      containers:
+        - name: mastodon-sidekiq
+          image: '{{ image }}'
+          imagePullPolicy: Always
+          command:
+            - bundle
+            - exec
+            - sidekiq
+          envFrom:
+            - configMapRef:
+                name: '{{ ansible_operator_meta.name }}-mastodon-config'
+            - secretRef:
+                name: '{{ ansible_operator_meta.name }}-mastodon-secret'
+          resources:
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+            requests:
+              cpu: 500m
+              memory: 512Mi
+{% if not s3_enabled %}
+          volumeMounts:
+            - name: mastodon-system
+              mountPath: /opt/mastodon/public/system
+      volumes:
+        - name: mastodon-system
+          persistentVolumeClaim:
+            claimName: '{{ ansible_operator_meta.name }}-mastodon-system'
+{% endif %}

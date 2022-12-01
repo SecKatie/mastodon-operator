@@ -1,0 +1,102 @@
+---
+- name: Create redis config
+  kubernetes.core.k8s:
+    definition:
+      kind: ConfigMap
+      apiVersion: v1
+      metadata:
+        name: '{{ ansible_operator_meta.name }}-redis'
+        namespace: '{{ ansible_operator_meta.namespace }}'
+      data:
+        redis.conf: |
+          maxmemory 1gb
+          maxmemory-policy noeviction
+- name: Create redis persistentVolumeClaim
+  kubernetes.core.k8s:
+    template: redis-pvc.yaml.j2
+- name: Create redis deployment
+  kubernetes.core.k8s:
+    definition:
+      kind: Deployment
+      apiVersion: apps/v1
+      metadata:
+        name: '{{ ansible_operator_meta.name }}-redis'
+        namespace: '{{ ansible_operator_meta.namespace }}'
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app.kubernetes.io/name: '{{ ansible_operator_meta.name }}-redis'
+            app.kubernetes.io/instance: '{{ ansible_operator_meta.name }}'
+            app.kubernetes.io/part-of: mastodon-operator
+            app.kubernetes.io/managed-by: kustomize
+            app.kubernetes.io/created-by: mastodon-operator
+            app.kubernetes.io/component: redis
+        template:
+          metadata:
+            labels:
+              app.kubernetes.io/name: '{{ ansible_operator_meta.name }}-redis'
+              app.kubernetes.io/instance: '{{ ansible_operator_meta.name }}'
+              app.kubernetes.io/part-of: mastodon-operator
+              app.kubernetes.io/managed-by: kustomize
+              app.kubernetes.io/created-by: mastodon-operator
+              app.kubernetes.io/component: redis
+          spec:
+            containers:
+              - name: redis
+                image: redis:7-alpine
+                imagePullPolicy: Always
+                command:
+                  - redis-server
+                  - /usr/local/etc/redis.conf
+                ports:
+                  - containerPort: 6379
+                    name: redis
+                readinessProbe:
+                  exec:
+                    command:
+                      - redis-cli
+                      - ping
+                  initialDelaySeconds: 5
+                  periodSeconds: 5
+                livenessProbe:
+                  exec:
+                    command:
+                      - redis-cli
+                      - ping
+                  initialDelaySeconds: 5
+                  periodSeconds: 5
+                volumeMounts:
+                  - name: redis-data
+                    mountPath: /data
+                  - name: redis-config
+                    mountPath: /usr/local/etc/redis.conf
+                    subPath: redis.conf
+            volumes:
+              - name: redis-data
+                persistentVolumeClaim:
+                  claimName: '{{ ansible_operator_meta.name }}-redis-pvc'
+              - name: redis-config
+                configMap:
+                  name: '{{ ansible_operator_meta.name }}-redis'
+- name: Create redis service
+  kubernetes.core.k8s:
+    definition:
+      kind: Service
+      apiVersion: v1
+      metadata:
+        name: '{{ ansible_operator_meta.name }}-redis'
+        namespace: '{{ ansible_operator_meta.namespace }}'
+      spec:
+        selector:
+          app.kubernetes.io/name: '{{ ansible_operator_meta.name }}-redis'
+          app.kubernetes.io/instance: '{{ ansible_operator_meta.name }}'
+          app.kubernetes.io/part-of: mastodon-operator
+          app.kubernetes.io/managed-by: kustomize
+          app.kubernetes.io/created-by: mastodon-operator
+          app.kubernetes.io/component: redis
+        ports:
+          - name: redis
+            port: 6379
+            targetPort: 6379
+        type: ClusterIP
