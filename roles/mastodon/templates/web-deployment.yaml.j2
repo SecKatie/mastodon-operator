@@ -42,18 +42,25 @@ spec:
                 name: '{{ ansible_operator_meta.name }}-mastodon-config'
             - secretRef:
                 name: '{{ ansible_operator_meta.name }}-mastodon-secret'
+          resources:
+            requests:
+              cpu: 100m
+              memory: 400Mi
+            limits:
+              cpu: 200m
+              memory: 500Mi
           livenessProbe:
             httpGet:
               path: /health
               port: http
-            initialDelaySeconds: 5
-            periodSeconds: 10
+            initialDelaySeconds: 20
+            periodSeconds: 30
           readinessProbe:
             httpGet:
               path: /health
               port: http
-            initialDelaySeconds: 5
-            periodSeconds: 10
+            initialDelaySeconds: 20
+            periodSeconds: 30
 {% if not s3_enabled %}
           volumeMounts:
             - name: mastodon-system
