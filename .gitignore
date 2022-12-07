@@ -12,6 +12,7 @@ bin
 *.swp
 *.swo
 *~
+.vscode
 
 # Generated files
 .dccache

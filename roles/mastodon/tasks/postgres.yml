@@ -20,7 +20,8 @@
         name: '{{ ansible_operator_meta.name }}-postgres-conf'
         namespace: '{{ ansible_operator_meta.namespace }}'
       data:
-        postgresql.conf: "{{ lookup('file', 'postgresql.conf') }}"
+        postgresql.conf: |
+          {{ lookup('file', 'postgresql.conf') }}
 - name: Check for an existing secret
   kubernetes.core.k8s_info:
     api_version: v1
@@ -65,6 +66,8 @@
             app.kubernetes.io/managed-by: kustomize
             app.kubernetes.io/created-by: mastodon-operator
             app.kubernetes.io/component: postgres
+        strategy:
+          type: Recreate
         template:
           metadata:
             labels:
@@ -87,6 +90,16 @@
                 ports:
                   - containerPort: 5432
                     name: postgres
+                args:
+                  - -c
+                  - 'config_file=/etc/postgresql/postgresql.conf'
+                resources:
+                  requests:
+                    cpu: 200m
+                    memory: 512Mi
+                  limits:
+                    cpu: '1'
+                    memory: 1Gi
                 readinessProbe:
                   exec:
                     command:
