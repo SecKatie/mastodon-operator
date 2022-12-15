@@ -63,3 +63,10 @@ spec:
   # Choose a different image for Cloudflare Argo Tunnel
   # cloudflared_image: "cloudflare/cloudflared:latest"
   
+  ## Performance tuning options
+
+  # Set elasticsearch ES_JAVA_OPTS
+  # elasticsearch_java_opts: "-Xms256m -Xmx256m"
+
+  # Set postgres memory limits in MB
+  # postgres_memory_limit: 512

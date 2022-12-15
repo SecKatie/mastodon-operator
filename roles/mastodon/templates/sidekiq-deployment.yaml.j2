@@ -38,13 +38,6 @@ spec:
                 name: '{{ ansible_operator_meta.name }}-mastodon-config'
             - secretRef:
                 name: '{{ ansible_operator_meta.name }}-mastodon-secret'
-          resources:
-            requests:
-              cpu: 500m
-              memory: 512Mi
-            limits:
-              cpu: 750m
-              memory: 768Mi
 {% if not s3_enabled %}
           volumeMounts:
             - name: mastodon-system

@@ -21,7 +21,7 @@
         namespace: '{{ ansible_operator_meta.namespace }}'
       data:
         postgresql.conf: |
-          {{ lookup('file', 'postgresql.conf') }}
+          {{ lookup('template', 'postgresql.conf.j2') }}
 - name: Check for an existing secret
   kubernetes.core.k8s_info:
     api_version: v1
@@ -93,29 +93,6 @@
                 args:
                   - -c
                   - 'config_file=/etc/postgresql/postgresql.conf'
-                resources:
-                  requests:
-                    cpu: 200m
-                    memory: 512Mi
-                  limits:
-                    cpu: '1'
-                    memory: 1Gi
-                readinessProbe:
-                  exec:
-                    command:
-                      - pg_isready
-                      - -U
-                      - '{{ ansible_operator_meta.name }}-mastodon'
-                  initialDelaySeconds: 5
-                  periodSeconds: 5
-                livenessProbe:
-                  exec:
-                    command:
-                      - pg_isready
-                      - -U
-                      - '{{ ansible_operator_meta.name }}-mastodon'
-                  initialDelaySeconds: 5
-                  periodSeconds: 5
                 volumeMounts:
                   - name: postgres-data
                     mountPath: /var/lib/postgresql/data

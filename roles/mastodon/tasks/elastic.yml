@@ -34,17 +34,12 @@
           spec:
             initContainers:
               - name: elastic-init
-                image: busybox
+                image: busybox:latest
                 imagePullPolicy: Always
-                command:
-                  - sh
-                  - -c
-                  - |
-                    set -e
-                    chown -R 1000:1000 /data
+                command: ['sh', '-c', 'chown -R 1000:1000 /usr/share/elasticsearch/data']
                 volumeMounts:
                   - name: elastic-data
-                    mountPath: /data
+                    mountPath: /usr/share/elasticsearch/data
             containers:
               - name: elastic
                 image: docker.elastic.co/elasticsearch/elasticsearch:7.17.4
@@ -66,26 +61,11 @@
                     value: "false"
                   - name: thread_pool.write.queue_size
                     value: "1000"
+                  - name: ES_JAVA_OPTS
+                    value: '{{ elasticsearch_java_opts }}'
                 ports:
                   - containerPort: 9200
                     name: elastic
-                readinessProbe:
-                  exec:
-                    command:
-                      - curl
-                      - -f
-                      - http://localhost:9200/_cluster/health?wait_for_status=yellow
-                  initialDelaySeconds: 30
-                  periodSeconds: 30
-                livenessProbe:
-                  exec:
-                    command:
-                      - curl
-                      - -f
-                      - http://localhost:9200/_cluster/health?wait_for_status=yellow
-                  initialDelaySeconds: 30
-                  periodSeconds: 30
-                  failureThreshold: 5
                 volumeMounts:
                   - name: elastic-data
                     mountPath: /usr/share/elasticsearch/data

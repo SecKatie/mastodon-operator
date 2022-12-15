@@ -34,27 +34,8 @@ spec:
             - containerPort: 4000
               name: streaming
               protocol: TCP
-          resources:
-            requests:
-              cpu: 100m
-              memory: 128Mi
-            limits:
-              cpu: 100m
-              memory: 200Mi
           envFrom:
             - configMapRef:
                 name: '{{ ansible_operator_meta.name }}-mastodon-config'
             - secretRef:
                 name: '{{ ansible_operator_meta.name }}-mastodon-secret'
-          livenessProbe:
-            httpGet:
-              path: /api/v1/streaming/health
-              port: streaming
-            initialDelaySeconds: 20
-            periodSeconds: 30
-          readinessProbe:
-            httpGet:
-              path: /api/v1/streaming/health
-              port: streaming
-            initialDelaySeconds: 20
-            periodSeconds: 30

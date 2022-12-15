@@ -52,20 +52,6 @@
                 ports:
                   - containerPort: 6379
                     name: redis
-                readinessProbe:
-                  exec:
-                    command:
-                      - redis-cli
-                      - ping
-                  initialDelaySeconds: 5
-                  periodSeconds: 5
-                livenessProbe:
-                  exec:
-                    command:
-                      - redis-cli
-                      - ping
-                  initialDelaySeconds: 5
-                  periodSeconds: 5
                 volumeMounts:
                   - name: redis-data
                     mountPath: /data
