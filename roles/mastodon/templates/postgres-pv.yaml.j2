@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: '{{ ansible_operator_meta.name }}-postgres-pv'
+spec:
+  capacity:
+    storage: 80Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: '{{ storage_class_name }}'
+  nfs:
+    path: {{ nfs_base_path }}/postgres
+    server: {{ nfs_server }}

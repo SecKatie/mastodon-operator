@@ -11,6 +11,10 @@
         redis.conf: |
           maxmemory 1gb
           maxmemory-policy noeviction
+- name: Create redis persistentVolume
+  kubernetes.core.k8s:
+    template: redis-pv.yaml.j2
+  when: storage_class_name == "nfs"
 - name: Create redis persistentVolumeClaim
   kubernetes.core.k8s:
     template: redis-pvc.yaml.j2

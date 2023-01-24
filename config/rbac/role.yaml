@@ -12,6 +12,7 @@ rules:
     resources:
       - secrets
       - configmaps
+      - persistentvolumes
       - persistentvolumeclaims
       - services
       - deployments

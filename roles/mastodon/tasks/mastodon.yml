@@ -148,6 +148,10 @@
     - name: Create mastodon sidekiq deployment
       kubernetes.core.k8s:
         template: sidekiq-deployment.yaml.j2
+    - name: Create extra sidekiq deployments
+      kubernetes.core.k8s:
+        template: sidekiq-extra-deployment.yaml.j2
+      when: extra_sidekiq is defined and extra_sidekiq
     - name: Check the availability of the web deployment
       kubernetes.core.k8s_info:
         api_version: v1

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: '{{ ansible_operator_meta.name }}-redis-pv'
+spec:
+  capacity:
+    storage: 8Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: '{{ storage_class_name }}'
+  nfs:
+    path: {{ nfs_base_path }}/redis
+    server: {{ nfs_server }}

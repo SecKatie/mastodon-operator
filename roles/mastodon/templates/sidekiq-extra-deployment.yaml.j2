@@ -1,10 +1,10 @@
 kind: Deployment
 apiVersion: apps/v1
 metadata:
-  name: '{{ ansible_operator_meta.name }}-mastodon-sidekiq'
+  name: '{{ ansible_operator_meta.name }}-mastodon-sidekiq-extra'
   namespace: '{{ ansible_operator_meta.namespace }}'
 spec:
-  replicas: {{ sidekiq_replicas }}
+  replicas: {{ extra_sidekiq_replicas }}
   selector:
     matchLabels:
       app.kubernetes.io/name: mastodon
@@ -12,7 +12,7 @@ spec:
       app.kubernetes.io/part-of: mastodon-operator
       app.kubernetes.io/managed-by: kustomize
       app.kubernetes.io/created-by: mastodon-operator
-      app.kubernetes.io/component: sidekiq
+      app.kubernetes.io/component: sidekiq-extra
   template:
     metadata:
       labels:
@@ -21,10 +21,10 @@ spec:
         app.kubernetes.io/part-of: mastodon-operator
         app.kubernetes.io/managed-by: kustomize
         app.kubernetes.io/created-by: mastodon-operator
-        app.kubernetes.io/component: sidekiq
+        app.kubernetes.io/component: sidekiq-extra
     spec:
       containers:
-        - name: mastodon-sidekiq
+        - name: mastodon-sidekiq-extra
           image: '{{ image }}'
           imagePullPolicy: Always
           command:
@@ -32,9 +32,17 @@ spec:
             - exec
             - sidekiq
             - -c
-            - '{{ sidekiq_threads }}'
+            - '{{ extra_sidekiq_threads }}'
             - -q
-            - scheduler
+            - default
+            - -q
+            - push
+            - -q
+            - mailers
+            - -q
+            - pull
+            - -q
+            - ingress
           envFrom:
             - configMapRef:
                 name: '{{ ansible_operator_meta.name }}-mastodon-config'

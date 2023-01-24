@@ -1,4 +1,8 @@
 ---
+- name: Create elastic persistentVolume
+  kubernetes.core.k8s:
+    template: elastic-pv.yaml.j2
+  when: storage_class_name == "nfs"
 - name: Create elastic persistentVolumeClaim
   kubernetes.core.k8s:
     template: elastic-pvc.yaml.j2

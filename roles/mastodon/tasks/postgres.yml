@@ -45,6 +45,10 @@
             namespace: '{{ ansible_operator_meta.namespace }}'
           data:
             POSTGRES_PASSWORD: '{{ postgres_password | b64encode }}'
+- name: Create postgres persistentVolume
+  kubernetes.core.k8s:
+    template: postgres-pv.yaml.j2
+  when: storage_class_name == "nfs"
 - name: Create postgres persistentVolumeClaim
   kubernetes.core.k8s:
     template: postgres-pvc.yaml.j2
